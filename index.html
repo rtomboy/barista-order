@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="주문서">
+<meta name="theme-color" content="#6f4e37">
+<title>바리스타 주문서</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior: none; }
+  :root {
+    --bg: #f5efe6;
+    --card: #ffffff;
+    --brown: #6f4e37;
+    --brown-dark: #4a3424;
+    --accent: #e8a87c;
+    --hot: #e8623b;
+    --ice: #3b9be8;
+    --line: #e3d8c8;
+    --ok: #4caf50;
+  }
+  body {
+    font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    background: var(--bg);
+    color: var(--brown-dark);
+    padding: 16px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    max-width: 1100px;
+    margin: 0 auto;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+  button, .drink, .opt, .tab, input, textarea { touch-action: manipulation; }
+  /* 버튼 눌렀을 때 터치 피드백 */
+  .drink:active, .opt:active, .tab:active, .btn:active, .icon-btn:active { filter: brightness(.95); }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--brown);
+    color: #fff;
+    padding: 18px 24px;
+    border-radius: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 6px 16px rgba(111,78,55,.25);
+  }
+  header h1 { font-size: 30px; display: flex; align-items: center; gap: 12px; }
+  .header-btns { display: flex; gap: 10px; }
+  .icon-btn {
+    background: rgba(255,255,255,.18);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 12px 18px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: .15s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,.32); }
+  .icon-btn.active { background: var(--ok); }
+
+  /* 손님 탭 */
+  .customer-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .tab {
+    background: var(--card);
+    border: 3px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: .15s;
+    position: relative;
+  }
+  .tab:hover { border-color: var(--accent); }
+  .tab.active {
+    border-color: var(--brown);
+    background: #fff3e6;
+    box-shadow: 0 0 0 4px rgba(232,168,124,.4);
+  }
+  .tab .person { font-size: 32px; line-height: 1; }
+  .tab .cname {
+    font-size: 18px; font-weight: 800; margin-top: 6px;
+    width: 100%; text-align: center; color: var(--brown-dark);
+    border: 2px solid var(--line); background: #fff;
+    border-radius: 10px; padding: 5px 4px;
+    transition: .15s;
+  }
+  .tab .cname:focus { outline: none; border-color: var(--brown); background: #fff8ef; box-shadow: 0 0 0 3px rgba(232,168,124,.35); }
+  .tab.active .cname { border-color: var(--accent); }
+  .tab .cstatus { font-size: 14px; font-weight: 600; color: #9b8a76; margin-top: 6px; min-height: 18px; }
+  .tab .cstatus.done { color: var(--ok); }
+  .tab .check {
+    position: absolute; top: -8px; right: -8px;
+    background: var(--ok); color: #fff;
+    width: 26px; height: 26px; border-radius: 50%;
+    font-size: 16px; display: none; align-items: center; justify-content: center;
+  }
+  .tab.complete .check { display: flex; }
+  body.edit-mode .tab { cursor: default; }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 8px 4px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .num {
+    background: var(--brown);
+    color: #fff;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .now-ordering {
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-left: auto;
+  }
+
+  .panel {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 18px;
+    margin-bottom: 18px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.05);
+  }
+
+  /* 음료 그리드 */
+  .drink-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .drink {
+    position: relative;
+    background: #fbf6ef;
+    border: 3px solid var(--line);
+    border-radius: 18px;
+    padding: 18px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: .15s;
+  }
+  .drink:hover { border-color: var(--accent); }
+  .drink.selected {
+    border-color: var(--brown);
+    background: #fff3e6;
+    box-shadow: 0 0 0 4px rgba(232,168,124,.4);
+  }
+  .drink .emoji { font-size: 48px; display: block; line-height: 1; margin-bottom: 8px; }
+  .drink .name {
+    font-size: 20px; font-weight: 700;
+    width: 100%; border: none; background: transparent;
+    text-align: center; color: var(--brown-dark);
+    pointer-events: none;
+  }
+  .drink .del {
+    display: none;
+    position: absolute; top: -10px; right: -10px;
+    background: var(--hot); color: #fff;
+    border: none; width: 30px; height: 30px;
+    border-radius: 50%; font-size: 18px; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  }
+
+  /* 편집 모드 */
+  body.edit-mode .drink { cursor: default; border-style: dashed; }
+  body.edit-mode .drink .name { pointer-events: auto; background: #fff; border-radius: 8px; padding: 4px; }
+  body.edit-mode .drink .emoji { cursor: pointer; }
+  body.edit-mode .drink .del { display: block; }
+  body.edit-mode .add-drink { display: flex; }
+  .add-drink {
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    background: #f0e9dd;
+    border: 3px dashed var(--brown);
+    border-radius: 18px;
+    color: var(--brown);
+    font-size: 18px; font-weight: 700;
+    cursor: pointer;
+    min-height: 130px;
+  }
+  .add-drink .plus { font-size: 44px; }
+
+  /* 옵션 (핫/아이스, 샷) */
+  .option-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .opt {
+    flex: 1;
+    min-width: 140px;
+    border: 3px solid var(--line);
+    border-radius: 18px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 22px; font-weight: 800;
+    transition: .15s;
+    background: #fbf6ef;
+  }
+  .opt .big { font-size: 44px; display: block; margin-bottom: 6px; }
+  .opt.hot.selected { border-color: var(--hot); background: #ffeee8; color: var(--hot); box-shadow: 0 0 0 4px rgba(232,98,59,.25); }
+  .opt.ice.selected { border-color: var(--ice); background: #e8f4ff; color: var(--ice); box-shadow: 0 0 0 4px rgba(59,155,232,.25); }
+
+  /* 샷 카운터 */
+  .shot-counter { display: flex; align-items: center; justify-content: center; gap: 24px; }
+  .shot-btn {
+    width: 80px; height: 80px; border-radius: 50%; border: none;
+    background: var(--brown); color: #fff; font-size: 44px; font-weight: 800;
+    cursor: pointer; line-height: 1; box-shadow: 0 4px 10px rgba(111,78,55,.3); transition: .1s;
+  }
+  .shot-btn:active { transform: scale(.92); }
+  .shot-btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+  .shot-display { text-align: center; min-width: 120px; }
+  .shot-display .count { font-size: 60px; font-weight: 900; color: var(--brown); line-height: 1; }
+  .shot-display .label { font-size: 20px; font-weight: 700; }
+
+  /* 전체 주문 요약 */
+  .summary { background: var(--brown-dark); color: #fff; border-radius: 20px; padding: 22px; margin-bottom: 18px; }
+  .summary .title { font-size: 18px; opacity: .85; margin-bottom: 12px; text-align: center; }
+  .order-list { display: flex; flex-direction: column; gap: 8px; }
+  .order-item {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,.08); border-radius: 12px; padding: 12px 16px;
+  }
+  .order-item .oc { font-size: 18px; font-weight: 800; opacity: .85; min-width: 90px; }
+  .order-item .ot { font-size: 24px; font-weight: 900; flex: 1; }
+  .order-item .ot.empty { opacity: .4; font-weight: 600; font-size: 18px; }
+
+  /* 하단 버튼 */
+  .action-row { display: flex; gap: 14px; }
+  .btn { flex: 1; padding: 22px; border: none; border-radius: 18px; font-size: 24px; font-weight: 800; cursor: pointer; transition: .15s; }
+  .btn-print { background: var(--ok); color: #fff; }
+  .btn-print:hover { background: #439a47; }
+  .btn-reset { background: #e0d6c7; color: var(--brown-dark); flex: 0 0 190px; }
+  .btn-reset:hover { background: #d3c6b3; }
+  .btn-clear { background: #f0d9d0; color: var(--hot); flex: 0 0 170px; }
+  .btn-clear:hover { background: #ecccc0; }
+
+  .hint { font-size: 16px; color: #9b8a76; text-align: center; margin: 6px 0 14px; }
+
+  /* 인쇄 */
+  #receipt { display: none; }
+  @media print {
+    body * { visibility: hidden; }
+    #receipt, #receipt * { visibility: visible; }
+    #receipt { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; color: #000; }
+    #receipt h2 { font-size: 34px; text-align: center; border-bottom: 3px dashed #000; padding-bottom: 14px; margin-bottom: 10px; }
+    .r-card { border: 3px solid #000; border-radius: 14px; padding: 18px 22px; margin: 16px 0; page-break-inside: avoid; }
+    .r-card .r-no { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
+    .r-card .r-drink { font-size: 40px; font-weight: 900; margin: 4px 0; }
+    .r-card .r-line { font-size: 24px; margin: 4px 0; }
+    .r-foot { margin-top: 20px; font-size: 20px; text-align: center; border-top: 3px dashed #000; padding-top: 12px; }
+  }
+
+  /* 태블릿 가로 (넓은 화면): 온도·샷을 나란히 배치해 스크롤 줄이기 */
+  @media (min-width: 820px) {
+    .tablet-row { display: flex; gap: 18px; align-items: stretch; }
+    .tablet-row > .col { flex: 1; display: flex; flex-direction: column; }
+    .tablet-row > .col > .panel { flex: 1; display: flex; align-items: center; justify-content: center; margin-bottom: 0; }
+    .tablet-row { margin-bottom: 18px; }
+    .tablet-row .section-title { margin-top: 0; }
+  }
+
+  /* 태블릿 일반 (세로/중간 화면) */
+  @media (min-width: 641px) and (max-width: 1024px) {
+    body { padding-top: 12px; }
+    .drink-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .tab .person { font-size: 36px; }
+    .tab .cname { font-size: 19px; }
+    .shot-btn { width: 88px; height: 88px; font-size: 48px; }
+  }
+
+  @media (max-width: 640px) {
+    header h1 { font-size: 22px; }
+    .customer-tabs { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .tab .cname { font-size: 14px; }
+    .tab .person { font-size: 24px; }
+    .tab .cstatus { display: none; }
+    .action-row { flex-wrap: wrap; }
+    .btn-reset, .btn-clear { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>☕ 바리스타 주문서</h1>
+  <div class="header-btns">
+    <button class="icon-btn" id="editBtn">✏️ 메뉴 편집</button>
+  </div>
+</header>
+
+<!-- 손님 선택 탭 -->
+<div class="section-title"><span class="num">👥</span> 손님을 고르세요 (5명)</div>
+<div class="customer-tabs" id="customerTabs"></div>
+
+<!-- 1. 음료 선택 -->
+<div class="section-title"><span class="num">1</span> 음료를 고르세요 <span class="now-ordering" id="nowOrd">손님 1</span></div>
+<div class="panel">
+  <p class="hint" id="editHint" style="display:none;">편집 모드 ✏️ : 음료 이름을 눌러 고치고, 그림을 눌러 바꿀 수 있어요. 손님 이름도 바꿀 수 있어요. ❌ 삭제, ➕ 추가.</p>
+  <div class="drink-grid" id="drinkGrid"></div>
+</div>
+
+<div class="tablet-row">
+  <!-- 2. 온도 -->
+  <div class="col">
+    <div class="section-title"><span class="num">2</span> 따뜻하게 / 차갑게</div>
+    <div class="panel">
+      <div class="option-row">
+        <div class="opt hot" id="optHot"><span class="big">🔥</span>따뜻하게<br>(HOT)</div>
+        <div class="opt ice" id="optIce"><span class="big">🧊</span>차갑게<br>(ICE)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 샷 -->
+  <div class="col">
+    <div class="section-title"><span class="num">3</span> 샷 개수</div>
+    <div class="panel">
+      <div class="shot-counter">
+        <button class="shot-btn" id="shotMinus">−</button>
+        <div class="shot-display"><div class="count" id="shotCount">1</div><div class="label">샷</div></div>
+        <button class="shot-btn" id="shotPlus">＋</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 전체 주문 요약 -->
+<div class="summary">
+  <div class="title">📋 전체 주문 (5명)</div>
+  <div class="order-list" id="orderList"></div>
+</div>
+
+<!-- 버튼 -->
+<div class="action-row">
+  <button class="btn btn-clear" id="clearBtn">🗑️ 전체 지우기</button>
+  <button class="btn btn-reset" id="resetBtn">🔄 이 손님 다시</button>
+  <button class="btn btn-print" id="printBtn">🖨️ 주문서 출력</button>
+</div>
+
+<!-- 인쇄용 -->
+<div id="receipt">
+  <h2>☕ 바리스타 주문서</h2>
+  <div id="receiptBody"></div>
+  <div class="r-foot" id="rTime"></div>
+</div>
+
+<script>
+const EMOJIS = ['☕','🥤','🧋','🍵','🥛','🧃','🍹','🫖','🧉','🍫','🍶','🥃'];
+const DEFAULT_DRINKS = [
+  { emoji: '☕', name: '아메리카노' },
+  { emoji: '🥛', name: '카페라떼' },
+  { emoji: '🍫', name: '카페모카' },
+  { emoji: '🧋', name: '바닐라라떼' },
+  { emoji: '🍵', name: '녹차라떼' },
+  { emoji: '🥤', name: '아이스티' },
+];
+const NUM = 5;
+const DEFAULT_NAMES = ['손님 1','손님 2','손님 3','손님 4','손님 5'];
+
+let drinks = loadDrinks();
+let names = loadNames();
+let orders = Array.from({length: NUM}, () => ({ drinkIdx: null, temp: null, shots: 1 }));
+let cur = 0;          // 현재 선택된 손님 index
+let editMode = false;
+
+function loadDrinks() {
+  try { const s = localStorage.getItem('barista_drinks'); if (s) return JSON.parse(s); } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_DRINKS));
+}
+function saveDrinks() { try { localStorage.setItem('barista_drinks', JSON.stringify(drinks)); } catch (e) {} }
+function loadNames() {
+  try { const s = localStorage.getItem('barista_names'); if (s) return JSON.parse(s); } catch (e) {}
+  return [...DEFAULT_NAMES];
+}
+function saveNames() { try { localStorage.setItem('barista_names', JSON.stringify(names)); } catch (e) {} }
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function curOrder() { return orders[cur]; }
+
+/* ---------- 손님 탭 ---------- */
+const tabsEl = document.getElementById('customerTabs');
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  for (let i = 0; i < NUM; i++) {
+    const o = orders[i];
+    const complete = o.drinkIdx !== null && o.temp !== null;
+    let status = '아직 안 골랐어요';
+    let cls = '';
+    if (o.drinkIdx !== null) {
+      status = drinks[o.drinkIdx] ? drinks[o.drinkIdx].name : '음료';
+      if (complete) cls = 'done';
+    }
+    const el = document.createElement('div');
+    el.className = 'tab' + (cur === i ? ' active' : '') + (complete ? ' complete' : '');
+    el.innerHTML = `
+      <div class="check">✓</div>
+      <div class="person">🧑</div>
+      <input class="cname" data-i="${i}" value="${escapeHtml(names[i])}" placeholder="이름 입력" maxlength="10" enterkeyhint="done">
+      <div class="cstatus ${cls}">${escapeHtml(status)}</div>
+    `;
+    el.onclick = (e) => { if (!editMode && !e.target.classList.contains('cname')) selectCustomer(i); };
+    tabsEl.appendChild(el);
+  }
+  tabsEl.querySelectorAll('.cname').forEach(inp => {
+    const i = +inp.dataset.i;
+    // 이름칸은 항상 입력 가능 — 누르면 그 손님이 선택되고 바로 이름을 입력할 수 있어요.
+    inp.onfocus = () => { if (cur !== i) selectCustomer(i); };
+    inp.oninput = () => { names[i] = inp.value; saveNames(); if (cur === i) document.getElementById('nowOrd').textContent = names[i] || ('손님 ' + (i + 1)); renderSummary(); };
+    inp.onblur = () => { if (!inp.value.trim()) { inp.value = '손님 ' + (i + 1); names[i] = inp.value; saveNames(); renderSummary(); document.getElementById('nowOrd').textContent = names[cur]; } };
+    inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
+    inp.onclick = (e) => e.stopPropagation();
+  });
+}
+
+function selectCustomer(i) {
+  cur = i;
+  document.getElementById('nowOrd').textContent = names[i] || ('손님 ' + (i + 1));
+  // 탭을 다시 그리지 않고 선택 표시만 변경 (이름 입력 중 키보드가 닫히지 않도록)
+  [...tabsEl.children].forEach((el, idx) => el.classList.toggle('active', idx === cur));
+  renderDrinks();
+  renderTemp();
+  renderShot();
+  renderSummary();
+}
+
+/* ---------- 음료 ---------- */
+const grid = document.getElementById('drinkGrid');
+function renderDrinks() {
+  grid.innerHTML = '';
+  drinks.forEach((d, i) => {
+    const el = document.createElement('div');
+    el.className = 'drink' + (curOrder().drinkIdx === i ? ' selected' : '');
+    el.innerHTML = `
+      <button class="del" data-i="${i}">✕</button>
+      <span class="emoji" data-i="${i}">${d.emoji}</span>
+      <input class="name" data-i="${i}" value="${escapeHtml(d.name)}" readonly>
+    `;
+    grid.appendChild(el);
+  });
+  const add = document.createElement('div');
+  add.className = 'add-drink'; add.id = 'addDrink';
+  add.innerHTML = '<span class="plus">➕</span>음료 추가';
+  grid.appendChild(add);
+  bindDrinkEvents();
+}
+function bindDrinkEvents() {
+  grid.querySelectorAll('.drink .emoji').forEach(em => {
+    em.onclick = () => {
+      const i = +em.dataset.i;
+      if (editMode) {
+        const c = EMOJIS.indexOf(drinks[i].emoji);
+        drinks[i].emoji = EMOJIS[(c + 1) % EMOJIS.length];
+        saveDrinks(); renderDrinks();
+      } else selectDrink(i);
+    };
+  });
+  grid.querySelectorAll('.drink .name').forEach(inp => {
+    inp.readOnly = !editMode;
+    inp.onclick = (e) => { if (!editMode) { e.preventDefault(); selectDrink(+inp.dataset.i); } };
+    inp.oninput = () => { drinks[+inp.dataset.i].name = inp.value; saveDrinks(); renderTabs(); renderSummary(); };
+    inp.onblur = () => { if (!inp.value.trim()) { inp.value = '음료'; drinks[+inp.dataset.i].name = '음료'; saveDrinks(); } };
+  });
+  grid.querySelectorAll('.drink .del').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.i;
+      if (drinks.length <= 1) { alert('음료는 최소 1개 있어야 해요.'); return; }
+      drinks.splice(i, 1);
+      orders.forEach(o => {
+        if (o.drinkIdx === i) o.drinkIdx = null;
+        else if (o.drinkIdx > i) o.drinkIdx--;
+      });
+      saveDrinks(); renderAll();
+    };
+  });
+  document.getElementById('addDrink').onclick = () => {
+    drinks.push({ emoji: '🥤', name: '새 음료' });
+    saveDrinks(); renderDrinks();
+  };
+}
+function selectDrink(i) { curOrder().drinkIdx = i; renderDrinks(); renderTabs(); renderSummary(); }
+
+/* ---------- 온도 ---------- */
+document.getElementById('optHot').onclick = () => setTemp('hot');
+document.getElementById('optIce').onclick = () => setTemp('ice');
+function setTemp(t) {
+  curOrder().temp = t;
+  renderTemp(); renderTabs(); renderSummary();
+}
+function renderTemp() {
+  const t = curOrder().temp;
+  document.getElementById('optHot').classList.toggle('selected', t === 'hot');
+  document.getElementById('optIce').classList.toggle('selected', t === 'ice');
+}
+
+/* ---------- 샷 ---------- */
+const shotCountEl = document.getElementById('shotCount');
+document.getElementById('shotPlus').onclick = () => { if (curOrder().shots < 5) { curOrder().shots++; renderShot(); renderSummary(); } };
+document.getElementById('shotMinus').onclick = () => { if (curOrder().shots > 1) { curOrder().shots--; renderShot(); renderSummary(); } };
+function renderShot() {
+  const s = curOrder().shots;
+  shotCountEl.textContent = s;
+  document.getElementById('shotMinus').disabled = s <= 1;
+  document.getElementById('shotPlus').disabled = s >= 5;
+}
+
+/* ---------- 주문 텍스트 ---------- */
+function orderToText(o) {
+  if (o.drinkIdx === null || !drinks[o.drinkIdx]) return null;
+  const d = drinks[o.drinkIdx];
+  const tempTxt = o.temp === 'hot' ? '🔥따뜻한' : o.temp === 'ice' ? '🧊차가운' : '';
+  return `${tempTxt} ${d.name} ${o.shots}샷`.trim();
+}
+function renderSummary() {
+  const list = document.getElementById('orderList');
+  list.innerHTML = '';
+  orders.forEach((o, i) => {
+    const txt = orderToText(o);
+    const item = document.createElement('div');
+    item.className = 'order-item';
+    item.innerHTML = `<div class="oc">${escapeHtml(names[i])}</div>` +
+      (txt ? `<div class="ot">${escapeHtml(txt)}</div>` : `<div class="ot empty">선택 안 함</div>`);
+    list.appendChild(item);
+  });
+}
+
+/* ---------- 편집 모드 ---------- */
+document.getElementById('editBtn').onclick = function() {
+  editMode = !editMode;
+  document.body.classList.toggle('edit-mode', editMode);
+  this.classList.toggle('active', editMode);
+  this.textContent = editMode ? '✅ 편집 끝' : '✏️ 메뉴 편집';
+  document.getElementById('editHint').style.display = editMode ? 'block' : 'none';
+  renderDrinks(); renderTabs();
+};
+
+/* ---------- 버튼 ---------- */
+document.getElementById('resetBtn').onclick = () => {
+  orders[cur] = { drinkIdx: null, temp: null, shots: 1 };
+  renderAll();
+};
+document.getElementById('clearBtn').onclick = () => {
+  if (!confirm('5명 주문을 모두 지울까요?')) return;
+  orders = Array.from({length: NUM}, () => ({ drinkIdx: null, temp: null, shots: 1 }));
+  cur = 0;
+  document.getElementById('nowOrd').textContent = names[0];
+  renderAll();
+};
+document.getElementById('printBtn').onclick = () => {
+  const filled = orders.map((o, i) => ({ o, i })).filter(x => orderToText(x.o));
+  if (filled.length === 0) { alert('주문을 먼저 골라주세요! ☕'); return; }
+  const incomplete = filled.filter(x => x.o.temp === null);
+  if (incomplete.length > 0) {
+    if (!confirm('따뜻하게/차갑게를 안 고른 손님이 있어요. 그래도 출력할까요?')) return;
+  }
+  const body = document.getElementById('receiptBody');
+  body.innerHTML = '';
+  filled.forEach((x, n) => {
+    const o = x.o, d = drinks[o.drinkIdx];
+    const tempTxt = o.temp === 'hot' ? '🔥 따뜻하게 (HOT)' : o.temp === 'ice' ? '🧊 차갑게 (ICE)' : '온도 미선택';
+    const card = document.createElement('div');
+    card.className = 'r-card';
+    card.innerHTML =
+      `<div class="r-no">${n + 1}. ${escapeHtml(names[x.i])}</div>` +
+      `<div class="r-drink">${d.emoji} ${escapeHtml(d.name)}</div>` +
+      `<div class="r-line">${tempTxt}　|　샷 ${o.shots}개</div>`;
+    body.appendChild(card);
+  });
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('rTime').textContent =
+    `주문 ${filled.length}잔  ·  ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  window.print();
+};
+
+/* ---------- 전체 렌더 ---------- */
+function renderAll() {
+  renderTabs();
+  renderDrinks();
+  renderTemp();
+  renderShot();
+  renderSummary();
+}
+document.getElementById('nowOrd').textContent = names[0];
+renderAll();
+</script>
+</body>
+</html>
