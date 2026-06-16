@@ -262,19 +262,35 @@
 
   .hint { font-size: 16px; color: #9b8a76; text-align: center; margin: 6px 0 14px; }
 
-  /* 인쇄 */
-  #receipt { display: none; }
-  @media print {
-    body * { visibility: hidden; }
-    #receipt, #receipt * { visibility: visible; }
-    #receipt { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; color: #000; }
-    #receipt h2 { font-size: 34px; text-align: center; border-bottom: 3px dashed #000; padding-bottom: 14px; margin-bottom: 10px; }
-    .r-card { border: 3px solid #000; border-radius: 14px; padding: 18px 22px; margin: 16px 0; page-break-inside: avoid; }
-    .r-card .r-no { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
-    .r-card .r-drink { font-size: 40px; font-weight: 900; margin: 4px 0; }
-    .r-card .r-line { font-size: 24px; margin: 4px 0; }
-    .r-foot { margin-top: 20px; font-size: 20px; text-align: center; border-top: 3px dashed #000; padding-top: 12px; }
+  /* 화면 출력 (전체화면 보기) */
+  #receipt {
+    display: none;
+    position: fixed; inset: 0; z-index: 100;
+    background: var(--brown-dark); color: #fff;
+    overflow-y: auto; padding: 24px 24px 110px;
+    padding-bottom: max(110px, calc(env(safe-area-inset-bottom) + 96px));
   }
+  #receipt.show { display: block; }
+  #receipt h2 { font-size: 38px; text-align: center; margin-bottom: 18px; }
+  .receipt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; max-width: 1000px; margin: 0 auto; }
+  .r-card {
+    background: #fff; color: var(--brown-dark);
+    border-radius: 18px; padding: 20px 24px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.25);
+  }
+  .r-card .r-no { font-size: 22px; font-weight: 900; color: var(--brown); margin-bottom: 8px; }
+  .r-card .r-drink { font-size: 40px; font-weight: 900; margin: 6px 0; line-height: 1.15; }
+  .r-card .r-line { font-size: 26px; font-weight: 700; margin: 6px 0; }
+  .r-foot { margin: 22px auto 0; max-width: 1000px; font-size: 20px; text-align: center; opacity: .85; }
+  .receipt-close {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: max(20px, env(safe-area-inset-bottom));
+    background: var(--ok); color: #fff; border: none;
+    font-size: 24px; font-weight: 800; padding: 18px 48px;
+    border-radius: 18px; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,.3);
+    z-index: 101;
+  }
+  .receipt-close:active { filter: brightness(.95); }
 
   /* 태블릿 가로 (넓은 화면): 온도·샷을 나란히 배치해 스크롤 줄이기 */
   @media (min-width: 820px) {
@@ -360,14 +376,15 @@
 <div class="action-row">
   <button class="btn btn-clear" id="clearBtn">🗑️ 전체 지우기</button>
   <button class="btn btn-reset" id="resetBtn">🔄 이 손님 다시</button>
-  <button class="btn btn-print" id="printBtn">🖨️ 주문서 출력</button>
+  <button class="btn btn-print" id="printBtn">📺 화면 출력</button>
 </div>
 
-<!-- 인쇄용 -->
+<!-- 화면 출력 (전체화면 보기) -->
 <div id="receipt">
   <h2>☕ 바리스타 주문서</h2>
-  <div id="receiptBody"></div>
+  <div class="receipt-grid" id="receiptBody"></div>
   <div class="r-foot" id="rTime"></div>
+  <button class="receipt-close" id="receiptClose">✅ 닫기</button>
 </div>
 
 <script>
@@ -431,10 +448,23 @@ function renderTabs() {
   }
   tabsEl.querySelectorAll('.cname').forEach(inp => {
     const i = +inp.dataset.i;
-    // 이름칸은 항상 입력 가능 — 누르면 그 손님이 선택되고 바로 이름을 입력할 수 있어요.
-    inp.onfocus = () => { if (cur !== i) selectCustomer(i); };
+    // 이름칸은 항상 입력 가능 — 누르면 그 손님이 선택되고, 칸이 비워져 바로 이름을 입력할 수 있어요.
+    inp.onfocus = () => {
+      if (cur !== i) selectCustomer(i);
+      inp.dataset.prev = names[i];   // 입력 안 하고 빠져나가면 되돌릴 이전 이름 기억
+      inp.value = '';                // 클릭하면 공백으로 → 바로 타이핑
+    };
     inp.oninput = () => { names[i] = inp.value; saveNames(); if (cur === i) document.getElementById('nowOrd').textContent = names[i] || ('손님 ' + (i + 1)); renderSummary(); };
-    inp.onblur = () => { if (!inp.value.trim()) { inp.value = '손님 ' + (i + 1); names[i] = inp.value; saveNames(); renderSummary(); document.getElementById('nowOrd').textContent = names[cur]; } };
+    inp.onblur = () => {
+      if (!inp.value.trim()) {
+        const prev = (inp.dataset.prev || '').trim();
+        names[i] = prev ? prev : ('손님 ' + (i + 1));   // 안 적었으면 이전 이름(없으면 기본값)으로 복원
+        inp.value = names[i];
+        saveNames();
+      }
+      renderSummary();
+      document.getElementById('nowOrd').textContent = names[cur] || ('손님 ' + (cur + 1));
+    };
     inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
     inp.onclick = (e) => e.stopPropagation();
   });
@@ -573,12 +603,13 @@ document.getElementById('clearBtn').onclick = () => {
   document.getElementById('nowOrd').textContent = names[0];
   renderAll();
 };
+const receiptEl = document.getElementById('receipt');
 document.getElementById('printBtn').onclick = () => {
   const filled = orders.map((o, i) => ({ o, i })).filter(x => orderToText(x.o));
   if (filled.length === 0) { alert('주문을 먼저 골라주세요! ☕'); return; }
   const incomplete = filled.filter(x => x.o.temp === null);
   if (incomplete.length > 0) {
-    if (!confirm('따뜻하게/차갑게를 안 고른 손님이 있어요. 그래도 출력할까요?')) return;
+    if (!confirm('따뜻하게/차갑게를 안 고른 손님이 있어요. 그래도 화면에 보여줄까요?')) return;
   }
   const body = document.getElementById('receiptBody');
   body.innerHTML = '';
@@ -597,8 +628,10 @@ document.getElementById('printBtn').onclick = () => {
   const pad = n => String(n).padStart(2, '0');
   document.getElementById('rTime').textContent =
     `주문 ${filled.length}잔  ·  ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  window.print();
+  receiptEl.classList.add('show');
+  receiptEl.scrollTop = 0;
 };
+document.getElementById('receiptClose').onclick = () => receiptEl.classList.remove('show');
 
 /* ---------- 전체 렌더 ---------- */
 function renderAll() {
