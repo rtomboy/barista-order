@@ -224,6 +224,20 @@
   .opt .big { font-size: 44px; display: block; margin-bottom: 6px; }
   .opt.hot.selected { border-color: var(--hot); background: #ffeee8; color: var(--hot); box-shadow: 0 0 0 4px rgba(232,98,59,.25); }
   .opt.ice.selected { border-color: var(--ice); background: #e8f4ff; color: var(--ice); box-shadow: 0 0 0 4px rgba(59,155,232,.25); }
+  /* 우유 선택 */
+  .opt.milk.selected { border-color: var(--brown); background: #fff3e6; color: var(--brown); box-shadow: 0 0 0 4px rgba(232,168,124,.4); }
+  .opt.soy.selected  { border-color: var(--ok); background: #eef9ef; color: var(--ok); box-shadow: 0 0 0 4px rgba(76,175,80,.3); }
+  .opt.nomilk.selected { border-color: #8a8a8a; background: #efefef; color: #555; box-shadow: 0 0 0 4px rgba(120,120,120,.25); }
+
+  /* 손님 수 늘리기/줄이기 버튼 */
+  .count-ctrl { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+  .cbtn {
+    width: 40px; height: 40px; border-radius: 50%; border: none;
+    background: var(--brown); color: #fff; font-size: 26px; font-weight: 800;
+    cursor: pointer; line-height: 1; box-shadow: 0 3px 8px rgba(111,78,55,.3); transition: .1s;
+  }
+  .cbtn:active { transform: scale(.92); }
+  .cbtn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
 
   /* 샷 카운터 */
   .shot-counter { display: flex; align-items: center; justify-content: center; gap: 24px; }
@@ -331,7 +345,12 @@
 </header>
 
 <!-- 손님 선택 탭 -->
-<div class="section-title"><span class="num">👥</span> 손님을 고르세요 (5명)</div>
+<div class="section-title"><span class="num">👥</span> 손님을 고르세요 <span id="custCountLabel">(5명)</span>
+  <span class="count-ctrl">
+    <button class="cbtn" id="custMinus" title="손님 줄이기">−</button>
+    <button class="cbtn" id="custPlus" title="손님 늘리기">＋</button>
+  </span>
+</div>
 <div class="customer-tabs" id="customerTabs"></div>
 
 <!-- 1. 음료 선택 -->
@@ -366,9 +385,19 @@
   </div>
 </div>
 
+<!-- 4. 우유 선택 -->
+<div class="section-title"><span class="num">4</span> 우유 선택 <span style="font-size:15px;font-weight:600;color:#9b8a76;">(필요할 때만)</span></div>
+<div class="panel">
+  <div class="option-row">
+    <div class="opt milk" id="optMilk"><span class="big">🥛</span>우유</div>
+    <div class="opt soy" id="optSoy"><span class="big">🌱</span>두유</div>
+    <div class="opt nomilk" id="optNoMilk"><span class="big">🚫</span>우유<br>빼기</div>
+  </div>
+</div>
+
 <!-- 전체 주문 요약 -->
 <div class="summary">
-  <div class="title">📋 전체 주문 (5명)</div>
+  <div class="title" id="summaryTitle">📋 전체 주문 (5명)</div>
   <div class="order-list" id="orderList"></div>
 </div>
 
@@ -397,14 +426,29 @@ const DEFAULT_DRINKS = [
   { emoji: '🍵', name: '녹차라떼' },
   { emoji: '🥤', name: '아이스티' },
 ];
-const NUM = 5;
-const DEFAULT_NAMES = ['손님 1','손님 2','손님 3','손님 4','손님 5'];
+const DEFAULT_NUM = 5;
+const MIN_NUM = 1, MAX_NUM = 12;
+
+function newOrder() { return { drinkIdx: null, temp: null, shots: 1, milk: null }; }
 
 let drinks = loadDrinks();
+let count = loadCount();        // 손님 수 (1~12)
 let names = loadNames();
-let orders = Array.from({length: NUM}, () => ({ drinkIdx: null, temp: null, shots: 1 }));
+let orders = Array.from({length: count}, () => newOrder());
 let cur = 0;          // 현재 선택된 손님 index
 let editMode = false;
+ensureArrays();
+
+function loadCount() {
+  try { const s = localStorage.getItem('barista_count'); if (s) { const n = parseInt(s, 10); if (n >= MIN_NUM && n <= MAX_NUM) return n; } } catch (e) {}
+  return DEFAULT_NUM;
+}
+function saveCount() { try { localStorage.setItem('barista_count', String(count)); } catch (e) {} }
+// names / orders 배열을 손님 수(count)만큼 채워줌 (모자라면 기본값 추가)
+function ensureArrays() {
+  while (names.length < count) names.push('손님 ' + (names.length + 1));
+  while (orders.length < count) orders.push(newOrder());
+}
 
 function loadDrinks() {
   try { const s = localStorage.getItem('barista_drinks'); if (s) return JSON.parse(s); } catch (e) {}
@@ -413,7 +457,7 @@ function loadDrinks() {
 function saveDrinks() { try { localStorage.setItem('barista_drinks', JSON.stringify(drinks)); } catch (e) {} }
 function loadNames() {
   try { const s = localStorage.getItem('barista_names'); if (s) return JSON.parse(s); } catch (e) {}
-  return [...DEFAULT_NAMES];
+  return Array.from({length: DEFAULT_NUM}, (_, i) => '손님 ' + (i + 1));
 }
 function saveNames() { try { localStorage.setItem('barista_names', JSON.stringify(names)); } catch (e) {} }
 
@@ -426,7 +470,7 @@ function curOrder() { return orders[cur]; }
 const tabsEl = document.getElementById('customerTabs');
 function renderTabs() {
   tabsEl.innerHTML = '';
-  for (let i = 0; i < NUM; i++) {
+  for (let i = 0; i < count; i++) {
     const o = orders[i];
     const complete = o.drinkIdx !== null && o.temp !== null;
     let status = '아직 안 골랐어요';
@@ -478,8 +522,26 @@ function selectCustomer(i) {
   renderDrinks();
   renderTemp();
   renderShot();
+  renderMilk();
   renderSummary();
 }
+
+/* ---------- 손님 수 늘리기 / 줄이기 ---------- */
+function updateCountLabels() {
+  document.getElementById('custCountLabel').textContent = '(' + count + '명)';
+  document.getElementById('summaryTitle').textContent = '📋 전체 주문 (' + count + '명)';
+  document.getElementById('custMinus').disabled = count <= MIN_NUM;
+  document.getElementById('custPlus').disabled = count >= MAX_NUM;
+}
+document.getElementById('custPlus').onclick = () => {
+  if (count >= MAX_NUM) return;
+  count++; ensureArrays(); saveCount(); renderAll();
+};
+document.getElementById('custMinus').onclick = () => {
+  if (count <= MIN_NUM) return;
+  count--; if (cur >= count) cur = count - 1;
+  saveCount(); renderAll();
+};
 
 /* ---------- 음료 ---------- */
 const grid = document.getElementById('drinkGrid');
@@ -550,6 +612,22 @@ function renderTemp() {
   document.getElementById('optIce').classList.toggle('selected', t === 'ice');
 }
 
+/* ---------- 우유 선택 ---------- */
+document.getElementById('optMilk').onclick = () => setMilk('milk');
+document.getElementById('optSoy').onclick = () => setMilk('soy');
+document.getElementById('optNoMilk').onclick = () => setMilk('none');
+function setMilk(m) {
+  const o = curOrder();
+  o.milk = (o.milk === m) ? null : m;   // 같은 걸 다시 누르면 선택 해제
+  renderMilk(); renderTabs(); renderSummary();
+}
+function renderMilk() {
+  const m = curOrder().milk;
+  document.getElementById('optMilk').classList.toggle('selected', m === 'milk');
+  document.getElementById('optSoy').classList.toggle('selected', m === 'soy');
+  document.getElementById('optNoMilk').classList.toggle('selected', m === 'none');
+}
+
 /* ---------- 샷 ---------- */
 const shotCountEl = document.getElementById('shotCount');
 document.getElementById('shotPlus').onclick = () => { if (curOrder().shots < 5) { curOrder().shots++; renderShot(); renderSummary(); } };
@@ -566,7 +644,8 @@ function orderToText(o) {
   if (o.drinkIdx === null || !drinks[o.drinkIdx]) return null;
   const d = drinks[o.drinkIdx];
   const tempTxt = o.temp === 'hot' ? '🔥따뜻한' : o.temp === 'ice' ? '🧊차가운' : '';
-  return `${tempTxt} ${d.name} ${o.shots}샷`.trim();
+  const milkTxt = o.milk === 'soy' ? ' · 🌱두유' : o.milk === 'none' ? ' · 🚫우유빼기' : o.milk === 'milk' ? ' · 🥛우유' : '';
+  return `${`${tempTxt} ${d.name} ${o.shots}샷`.trim()}${milkTxt}`;
 }
 function renderSummary() {
   const list = document.getElementById('orderList');
@@ -593,12 +672,12 @@ document.getElementById('editBtn').onclick = function() {
 
 /* ---------- 버튼 ---------- */
 document.getElementById('resetBtn').onclick = () => {
-  orders[cur] = { drinkIdx: null, temp: null, shots: 1 };
+  orders[cur] = newOrder();
   renderAll();
 };
 document.getElementById('clearBtn').onclick = () => {
-  if (!confirm('5명 주문을 모두 지울까요?')) return;
-  orders = Array.from({length: NUM}, () => ({ drinkIdx: null, temp: null, shots: 1 }));
+  if (!confirm(count + '명 주문을 모두 지울까요?')) return;
+  orders = Array.from({length: count}, () => newOrder());
   cur = 0;
   document.getElementById('nowOrd').textContent = names[0];
   renderAll();
@@ -616,12 +695,14 @@ document.getElementById('printBtn').onclick = () => {
   filled.forEach((x, n) => {
     const o = x.o, d = drinks[o.drinkIdx];
     const tempTxt = o.temp === 'hot' ? '🔥 따뜻하게 (HOT)' : o.temp === 'ice' ? '🧊 차갑게 (ICE)' : '온도 미선택';
+    const milkTxt = o.milk === 'soy' ? '🌱 두유' : o.milk === 'none' ? '🚫 우유 빼기' : o.milk === 'milk' ? '🥛 우유' : '';
     const card = document.createElement('div');
     card.className = 'r-card';
     card.innerHTML =
       `<div class="r-no">${n + 1}. ${escapeHtml(names[x.i])}</div>` +
       `<div class="r-drink">${d.emoji} ${escapeHtml(d.name)}</div>` +
-      `<div class="r-line">${tempTxt}　|　샷 ${o.shots}개</div>`;
+      `<div class="r-line">${tempTxt}　|　샷 ${o.shots}개</div>` +
+      (milkTxt ? `<div class="r-line">${milkTxt}</div>` : '');
     body.appendChild(card);
   });
   const now = new Date();
@@ -635,10 +716,12 @@ document.getElementById('receiptClose').onclick = () => receiptEl.classList.remo
 
 /* ---------- 전체 렌더 ---------- */
 function renderAll() {
+  updateCountLabels();
   renderTabs();
   renderDrinks();
   renderTemp();
   renderShot();
+  renderMilk();
   renderSummary();
 }
 document.getElementById('nowOrd').textContent = names[0];
